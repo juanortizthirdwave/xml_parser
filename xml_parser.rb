@@ -8,6 +8,7 @@ class XmlParser
     xml = get_object(file)
     @csv_file = CSV.open('converted_file.csv', 'w')
     @main_element = xml.xpath(name = "j2xml").children
+    @columns = []
     @category = ""
   end
 
@@ -27,8 +28,10 @@ class XmlParser
   
   def add_columns
     content_fields = @main_element.xpath("//content").first.children.map { |c| c.name }
-    columns = (['category'] + content_fields).flatten
-    @csv_file << columns
+    @columns = (['category'] + content_fields).flatten
+    ["alias", "title_alias" , "created_by_alias" , "checked_out", "checked_out_time", 
+      "publish_up", "publish_down", "images", "urls", "attribs"].each { |el| @columns.delete el }
+    @csv_file << @columns
   end
 
   def populate_rows
@@ -42,15 +45,18 @@ class XmlParser
     @category = node.name == "category" ? node.xpath('title').text : @category
   end
 
-  def close_files
-    @csv_file.close
-  end
-
   def add_rows(node)
     if node.name == "content"
-      content = node.children.reduce([@category]){|row, el|  row << CGI.unescapeHTML(el.text)}
-      @csv_file << content
+      row = @columns[1..-1].reduce([@category]) do |content, col_name|
+        text = node.xpath("#{col_name}").text
+        content << CGI.unescapeHTML(text)
+      end
+      @csv_file << row
     end
+  end
+
+  def close_files
+    @csv_file.close
   end
 
   def parse_entities(string)
@@ -58,4 +64,12 @@ class XmlParser
   end
 end
 
-XmlParser.new("j2xml150620141028111948copy").convert
+XmlParser.new("j2xml150620141028111948").convert
+
+
+=begin
+'//title' this searches for all <title> elements starting at the root of the document. 
+Use either simply 'title' to find child titles, 
+or './/title' if you want to find titles even if they are nested inside of other elements.  
+=end
+
